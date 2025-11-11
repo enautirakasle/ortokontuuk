@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diario de la Huerta Escolar</title>
+    <!-- Carga de Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Carga de la biblioteca de iconos (para los tipos de eventos) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Fuente Inter (similar a la usada en Tailwind) */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Pequeña animación para los mensajes de estado */
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+        .status-message {
+            animation: fadeInOut 3s ease-in-out forwards;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <!-- Contenedor principal -->
+    <div class="container mx-auto max-w-6xl p-4 md:p-8">
+        
+        <!-- Mensaje de estado (oculto por defecto) -->
+        <div id="statusMessage" class="hidden status-message bg-green-500 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+            ¡Registro guardado!
+        </div>
+        <div id="errorMessage" class="hidden status-message bg-red-500 text-white font-bold py-2 px-4 rounded-lg shadow-lg">
+            Error. Revisa los datos.
+        </div>
+
+        <!-- Título -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-green-800">Diario de la Huerta Escolar</h1>
+            <p class="text-lg text-gray-600">Registra todas las actividades y eventos de tu huerta.</p>
+        </header>
+
+        <!-- Layout de dos columnas: Formulario y Registros -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+
+            <!-- Columna 1: Formulario de Nuevo Registro -->
+            <div class="md:col-span-1 bg-white p-6 rounded-lg shadow-lg h-fit">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-900">Añadir Nuevo Evento</h2>
+                <form id="logForm" class="space-y-4">
+                    <div>
+                        <label for="eventDate" class="block text-sm font-medium text-gray-700">Fecha del Evento</label>
+                        <input type="date" id="eventDate" name="eventDate" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500" required>
+                    </div>
+
+                    <div>
+                        <label for="eventType" class="block text-sm font-medium text-gray-700">Tipo de Evento</label>
+                        <select id="eventType" name="eventType" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500" required>
+                            <option value="siembra">🌱 Siembra</option>
+                            <option value="plantacion">🌿 Plantación</option>
+                            <option value="tarea">🛠️ Tarea/Trabajo</option>
+                            <option value="clima">☀️ Evento Climatológico</option>
+                            <option value="recordatorio">🔔 Recordatorio</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="eventDescription" class="block text-sm font-medium text-gray-700">Descripción y Notas</label>
+                        <textarea id="eventDescription" name="eventDescription" rows="4" class="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500" placeholder="Ej: Los alumnos de 3º sembraron lechugas..." required></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow-md hover:bg-green-700 transition duration-300 ease-in-out">
+                        Guardar Registro
+                    </button>
+                </form>
+            </div>
+
+            <!-- Columna 2: Registros (con pestañas) -->
+            <div class="md:col-span-2 bg-white p-6 rounded-lg shadow-lg">
+                <!-- Pestañas -->
+                <div class="flex border-b border-gray-200 mb-4">
+                    <button id="tabHistory" class="tab-btn py-2 px-4 font-semibold text-green-600 border-b-2 border-green-600">
+                        Histórico de Trabajos
+                    </button>
+                    <button id="tabReminders" class="tab-btn py-2 px-4 font-semibold text-gray-500">
+                        Recordatorios
+                    </button>
+                </div>
+
+                <!-- Contenedor de Pestañas -->
+                <div>
+                    <!-- Pestaña 1: Historial -->
+                    <div id="historyContainer">
+                        <div id="historyLog" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Los registros históricos se cargarán aquí -->
+                            <p id="historyLoading" class="text-gray-500">Cargando registros...</p>
+                        </div>
+                    </div>
+
+                    <!-- Pestaña 2: Recordatorios -->
+                    <div id="remindersContainer" class="hidden">
+                        <div id="remindersLog" class="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                            <!-- Los recordatorios se cargarán aquí -->
+                            <p id="remindersLoading" class="text-gray-500">Cargando recordatorios...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Información de Usuario (para apps colaborativas) -->
+        <footer class="mt-8 text-center text-gray-500 text-sm">
+            <p>ID de Usuario (para soporte): <span id="userIdDisplay" class="font-mono">...</span></p>
+        </footer>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Importaciones de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query, doc, deleteDoc, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- VARIABLES GLOBALES DE CONFIGURACIÓN ---
+        
+        // PASO 2.1: ¡REEMPLAZA ESTO con tu objeto de configuración de Firebase!
+        // (Copiado del Paso 1.3 de la guía)
+        const firebaseConfig = {
+          /* apiKey: "AIza...",
+            authDomain: "tu-proyecto.firebaseapp.com",
+            projectId: "tu-proyecto",
+            storageBucket: "tu-proyecto.appspot.com",
+            messagingSenderId: "...",
+            appId: "1:..."
+          */
+        };
+        
+        // PASO 2.4: ID de la App (debe coincidir con tus Reglas de Firestore)
+        const appId = 'mi-app-huerta';
+        
+
+        // --- VARIABLES GLOBALES DE LA APP ---
+        let app, auth, db;
+        let userId;
+        let isAuthReady = false;
+        let logsCollectionRef;
+
+        // --- ELEMENTOS DEL DOM ---
+        const logForm = document.getElementById('logForm');
+        const eventDateInput = document.getElementById('eventDate');
+        const eventTypeInput = document.getElementById('eventType');
+        const eventDescriptionInput = document.getElementById('eventDescription');
+        
+        const historyLog = document.getElementById('historyLog');
+        const remindersLog = document.getElementById('remindersLog');
+        const historyLoading = document.getElementById('historyLoading');
+        const remindersLoading = document.getElementById('remindersLoading');
+        
+        const tabHistory = document.getElementById('tabHistory');
+        const tabReminders = document.getElementById('tabReminders');
+        const historyContainer = document.getElementById('historyContainer');
+        const remindersContainer = document.getElementById('remindersContainer');
+
+        const statusMessage = document.getElementById('statusMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const userIdDisplay = document.getElementById('userIdDisplay');
+
+        // --- INICIALIZACIÓN ---
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (Object.keys(firebaseConfig).length < 5) { // Comprobación simple
+                console.error("Configuración de Firebase no encontrada o incompleta.");
+                historyLog.innerHTML = '<p class="text-red-500">Error: No se pudo cargar la configuración de la base de datos. Revisa el Paso 2.1 de la guía.</p>';
+                return;
+            }
+            
+            try {
+                // Inicializar Firebase
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Configurar persistencia de autenticación
+                setPersistence(auth, inMemoryPersistence);
+
+                // Manejar autenticación
+                handleAuthentication();
+                
+                // Configurar listeners de UI
+                setupUIListeners();
+
+                // Poner la fecha de hoy por defecto
+                eventDateInput.value = new Date().toISOString().split('T')[0];
+
+            } catch (error) {
+                console.error("Error inicializando Firebase:", error);
+                historyLog.innerHTML = `<p class="text-red-500">Error al iniciar: ${error.message}</p>`;
+            }
+        });
+
+        // --- AUTENTICACIÓN (Modificada para GitHub Pages) ---
+
+        async function handleAuthentication() {
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // Usuario ya está autenticado
+                    userId = user.uid;
+                    await onUserReady();
+                } else {
+                    // Intentar autenticar anónimamente
+                    try {
+                        await signInAnonymously(auth);
+                        // onAuthStateChanged se disparará de nuevo con el nuevo usuario
+                    } catch (error) {
+                        console.error("Error de autenticación anónima:", error);
+                        historyLog.innerHTML = '<p class="text-red-500">Error de autenticación.</p>';
+                    }
+                }
+            });
+        }
+        
+        async function onUserReady() {
+            if (!userId) return;
+            
+            console.log("Usuario autenticado:", userId);
+            userIdDisplay.textContent = userId;
+            isAuthReady = true;
+
+            // Definir la ruta de la colección (privada para este usuario/app)
+            const collectionPath = `/artifacts/${appId}/users/${userId}/garden_log`;
+            logsCollectionRef = collection(db, collectionPath);
+            
+            // Cargar los registros
+            loadLogs();
+        }
+
+        // --- MANEJO DE DATOS (FIRESTORE) ---
+
+        // Cargar y escuchar cambios en los registros
+        function loadLogs() {
+            if (!isAuthReady || !logsCollectionRef) {
+                console.warn("Auth o DB no están listos para cargar logs.");
+                return;
+            }
+
+            const q = query(logsCollectionRef);
+
+            onSnapshot(q, (snapshot) => {
+                const allLogs = [];
+                snapshot.forEach((doc) => {
+                    allLogs.push({ id: doc.id, ...doc.data() });
+                });
+
+                // Ordenar en JS (para evitar crear índices de Firestore)
+                // Ordenar por fecha (más reciente primero)
+                allLogs.sort((a, b) => b.date.localeCompare(a.date));
+
+                renderLogs(allLogs);
+
+            }, (error) => {
+                console.error("Error al cargar registros:", error);
+                historyLog.innerHTML = '<p class="text-red-500">Error al cargar datos.</p>';
+            });
+        }
+
+        // Añadir un nuevo registro
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            if (!isAuthReady) {
+                showStatusMessage("Espera, conectando...", true);
+                return;
+            }
+
+            const newLog = {
+                date: eventDateInput.value,
+                type: eventTypeInput.value,
+                description: eventDescriptionInput.value,
+                createdAt: Timestamp.now()
+            };
+
+            if (!newLog.date || !newLog.description) {
+                showStatusMessage("La fecha y la descripción son obligatorias.", true);
+                return;
+            }
+
+            try {
+                await addDoc(logsCollectionRef, newLog);
+                showStatusMessage("¡Registro guardado!");
+                logForm.reset();
+                // Resetear la fecha a hoy
+                eventDateInput.value = new Date().toISOString().split('T')[0];
+            } catch (error) {
+                console.error("Error al guardar:", error);
+                showStatusMessage("Error al guardar el registro.", true);
+            }
+        }
+
+        // Eliminar un registro (funcionalidad extra, por si acaso)
+        async function deleteLog(id) {
+            if (!isAuthReady) return;
+            // Ocultamos la confirmación al ser un entorno iframe
+            // if (confirm("¿Estás seguro de que quieres borrar este registro?")) {
+            try {
+                const docRef = doc(db, logsCollectionRef.path, id);
+                await deleteDoc(docRef);
+                showStatusMessage("Registro eliminado.");
+            } catch (error) {
+                console.error("Error al eliminar:", error);
+                showStatusMessage("Error al eliminar.", true);
+            }
+            // }
+        }
+
+        // --- RENDERIZADO Y UI ---
+
+        // Configurar listeners de la UI (pestañas, formulario)
+        function setupUIListeners() {
+            logForm.addEventListener('submit', handleFormSubmit);
+
+            tabHistory.addEventListener('click', () => switchTab('history'));
+            tabReminders.addEventListener('click', () => switchTab('reminders'));
+        }
+
+        // Cambiar entre pestañas
+        function switchTab(tabName) {
+            if (tabName === 'history') {
+                historyContainer.classList.remove('hidden');
+                remindersContainer.classList.add('hidden');
+                
+                tabHistory.classList.add('text-green-600', 'border-green-600');
+                tabHistory.classList.remove('text-gray-500');
+                
+                tabReminders.classList.add('text-gray-500');
+                tabReminders.classList.remove('text-green-600', 'border-green-600');
+            } else {
+                historyContainer.classList.add('hidden');
+                remindersContainer.classList.remove('hidden');
+
+                tabReminders.classList.add('text-green-600', 'border-green-600');
+                tabReminders.classList.remove('text-gray-500');
+                
+                tabHistory.classList.add('text-gray-500');
+                tabHistory.classList.remove('text-green-600', 'border-green-600');
+            }
+        }
+
+        // Renderizar la lista de logs
+        function renderLogs(logs) {
+            // Limpiar contenedores
+            historyLog.innerHTML = '';
+            remindersLog.innerHTML = '';
+
+            let historyCount = 0;
+            let remindersCount = 0;
+
+            logs.forEach(log => {
+                const logElement = createLogElement(log);
+                if (log.type === 'recordatorio') {
+                    remindersLog.appendChild(logElement);
+                    remindersCount++;
+                } else {
+                    historyLog.appendChild(logElement);
+                    historyCount++;
+                }
+            });
+
+            // Mostrar mensajes si están vacíos
+            if (historyCount === 0) {
+                historyLoading.textContent = "Aún no hay registros en el historial.";
+                historyLog.appendChild(historyLoading);
+            }
+            if (remindersCount === 0) {
+                remindersLoading.textContent = "No tienes recordatorios pendientes.";
+                remindersLog.appendChild(remindersLoading);
+            }
+        }
+
+        // Crear el elemento HTML para un solo log
+        function createLogElement(log) {
+            const div = document.createElement('div');
+            div.className = 'border-b border-gray-200 pb-4';
+
+            const { icon, color, label } = getEventTypeDetails(log.type);
+
+            div.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-sm text-gray-500 font-medium">${formatDate(log.date)}</p>
+                        <p class="text-gray-800 mt-1">${log.description.replace(/\n/g, '<br>')}</p> <!-- Conservar saltos de línea -->
+                    </div>
+                    <div class="flex-shrink-0 ml-4">
+                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium ${color}">
+                            <i class="${icon} mr-1.5"></i>
+                            ${label}
+                        </span>
+                    </div>
+                </div>
+            `;
+            
+            return div;
+        }
+
+        // Helper para detalles de tipo de evento (íconos, colores)
+        function getEventTypeDetails(type) {
+            switch (type) {
+                case 'siembra':
+                    return { icon: 'fa-solid fa-seedling', color: 'bg-green-100 text-green-800', label: 'Siembra' };
+                case 'plantacion':
+                    return { icon: 'fa-solid fa-plant-wilt', color: 'bg-blue-100 text-blue-800', label: 'Plantación' };
+                case 'tarea':
+                    return { icon: 'fa-solid fa-screwdriver-wrench', color: 'bg-yellow-100 text-yellow-800', label: 'Tarea' };
+                case 'clima':
+                    return { icon: 'fa-solid fa-cloud-sun', color: 'bg-indigo-100 text-indigo-800', label: 'Clima' };
+                case 'recordatorio':
+                    return { icon: 'fa-solid fa-bell', color: 'bg-pink-100 text-pink-800', label: 'Recordatorio' };
+                default:
+                    return { icon: 'fa-solid fa-question', color: 'bg-gray-100 text-gray-800', label: 'Otro' };
+            }
+        }
+
+        // Helper para formatear la fecha
+        function formatDate(dateString) {
+            try {
+                const date = new Date(dateString + 'T00:00:00'); // Asumir zona horaria local
+                return date.toLocaleDateString('es-ES', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        // Helper para mostrar mensajes de estado
+        function showStatusMessage(message, isError = false) {
+            const el = isError ? errorMessage : statusMessage;
+            el.textContent = message;
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                el.classList.add('hidden');
+            }, 3000);
+        }
+
+    </script>
+</body>
+</html>
